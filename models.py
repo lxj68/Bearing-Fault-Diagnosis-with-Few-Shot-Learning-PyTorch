@@ -43,8 +43,6 @@ class SiameseNet(nn.Module):
             nn.MaxPool1d(kernel_size=2, stride=2),
             nn.Flatten(),
             nn.Linear(128, 100),
-            nn.Sigmoid(),
-            nn.Linear(100, 100),
             nn.Sigmoid()
         )
 
@@ -63,6 +61,48 @@ class SiameseNet(nn.Module):
         D1_layer = self.dropout(L1_distance)
         prediction = self.prediction(D1_layer)
         return prediction
+
+class SiameseNet2(nn.Module):
+    def __init__(self):
+        super(SiameseNet2, self).__init__()
+        
+        self.convnet = nn.Sequential(
+            nn.Conv1d(in_channels=2, out_channels=16, kernel_size=64, stride=16, padding=32),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2, stride=2),
+            nn.Conv1d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2, stride=2),
+            nn.Conv1d(in_channels=32, out_channels=64, kernel_size=2, stride=1, padding=0),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2, stride=2),
+            nn.Conv1d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2, stride=2),
+            nn.Conv1d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2, stride=2),
+            nn.Flatten(),
+            nn.Linear(192, 100),
+            nn.Sigmoid()
+        )
+        
+        self.l1_layer = LambdaLayer(lambda tensors: torch.abs(tensors[0] - tensors[1]))
+        self.dropout = nn.Dropout(p=0.5)
+        self.prediction = nn.Sequential(
+            nn.Linear(100, 1),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x1, x2):
+        encoded_l = self.convnet(x1)
+        encoded_r = self.convnet(x2)
+
+        L1_distance = self.l1_layer([encoded_l, encoded_r])
+        D1_layer = self.dropout(L1_distance)
+        prediction = self.prediction(D1_layer)
+        return prediction
+
 
 class WDCNN(nn.Module):
     def __init__(self, input_shape):
