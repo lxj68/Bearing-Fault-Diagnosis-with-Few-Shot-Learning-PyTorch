@@ -103,42 +103,65 @@ class SiameseNet2(nn.Module):
         prediction = self.prediction(D1_layer)
         return prediction
 
-
 class WDCNN(nn.Module):
-    def __init__(self, input_shape):
+    def __init__(self, nclasses=10):
         super(WDCNN, self).__init__()
-        self.conv1 = nn.Conv1d(in_channels=input_shape[1], out_channels=16, kernel_size=64, stride=9, padding=32)
-        self.pool1 = nn.MaxPool1d(kernel_size=2, stride=2)
-        self.conv2 = nn.Conv1d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=1)
-        self.pool2 = nn.MaxPool1d(kernel_size=2, stride=2)
-        self.conv3 = nn.Conv1d(in_channels=32, out_channels=64, kernel_size=2, stride=1, padding=1)
-        self.pool3 = nn.MaxPool1d(kernel_size=2, stride=2)
-        self.conv4 = nn.Conv1d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1)
-        self.pool4 = nn.MaxPool1d(kernel_size=2, stride=2)
-        self.conv5 = nn.Conv1d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=0)
-        self.pool5 = nn.MaxPool1d(kernel_size=2, stride=2)
-        self.flatten = nn.Flatten()
-        self.fc1 = nn.Linear(64 * (input_shape[0] // 256), 100)
-        self.sig1 = nn.Sigmoid()
+        self.convnet = nn.Sequential(
+            SeparableConv1D(in_channels=2, out_channels=14, kernel_size=64, stride=8, depth_multiplier=29),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=3, stride=3),
+            SeparableConv1D(in_channels=14, out_channels=32, kernel_size=3, stride=1, depth_multiplier=1),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=3, stride=3),
+            SeparableConv1D(in_channels=32, out_channels=64, kernel_size=2, stride=1, depth_multiplier=1),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=3, stride=3),
+            SeparableConv1D(in_channels=64, out_channels=64, kernel_size=3, stride=1, depth_multiplier=1),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2, stride=2),
+            SeparableConv1D(in_channels=64, out_channels=64, kernel_size=3, stride=1, depth_multiplier=1),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2, stride=2),
+            nn.Flatten(),
+            nn.Linear(128, 100),
+            nn.Sigmoid(),
+            nn.Dropout(p=0.5),
+            nn.Linear(100, nclasses),
+            nn.Softmax(dim=1)
+        )
 
     def forward(self, x):
-        x = x.transpose(1, 2)  # transpose to NCHW format
-        out = self.conv1(x)
-        out = F.relu(out)
-        out = self.pool1(out)
-        out = self.conv2(out)
-        out = F.relu(out)
-        out = self.pool2(out)
-        out = self.conv3(out)
-        out = F.relu(out)
-        out = self.pool3(out)
-        out = self.conv4(out)
-        out = F.relu(out)
-        out = self.pool4(out)
-        out = self.conv5(out)
-        out = F.relu(out)
-        out = self.pool5(out)
-        out = self.flatten(out)
-        out = self.fc1(out)
-        out = self.sig1(out)
-        return out
+        x = self.convnet(x)
+        return x
+
+class WDCNN2(nn.Module):
+    def __init__(self, input_shape=(2048, 2), nclasses=10):
+        super(WDCNN2, self).__init__()
+        self.convnet = nn.Sequential(
+            nn.Conv1d(in_channels=input_shape[1], out_channels=16, kernel_size=64, stride=9, padding=32),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2),
+            nn.Conv1d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2),
+            nn.Conv1d(in_channels=32, out_channels=64, kernel_size=2, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2),
+            nn.Conv1d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2),
+            nn.Conv1d(in_channels=64, out_channels=64, kernel_size=3, stride=1),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2),
+            nn.Flatten(),
+            nn.Linear(384, 100),
+            nn.Sigmoid(),
+            nn.Dropout(p=0.5),
+            nn.Linear(100, nclasses),
+            nn.Softmax(dim=1)
+        )
+
+    def forward(self, x):
+        x = self.convnet(x)
+        return x
+    
