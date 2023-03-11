@@ -211,3 +211,18 @@ def custom_collate_fn_2(batch):
     targets = targets.clone().detach()
     
     return (x1, x2), targets
+
+def wdcnn_collate_fn(batch):
+    # Unpack the batch into separate data points and labels
+    data, labels = zip(*batch)
+    
+    data = np.array(data, dtype=np.float32)
+    labels = np.array(labels, dtype=np.int64)
+
+    data = torch.from_numpy(data)
+    labels = torch.from_numpy(labels)
+    
+    # Reshape the data into the desired shape
+    data = data.view(-1, 2, 2048)
+
+    return data, labels
