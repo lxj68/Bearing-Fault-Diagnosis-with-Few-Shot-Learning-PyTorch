@@ -6,14 +6,19 @@ from dataset import custom_collate_fn, custom_collate_fn_2, wdcnn_collate_fn
 from torch.utils.data import DataLoader
 
 class siamese_trainer:
-    def __init__(self, model, train_dataset, val_dataset, batch_size, lr, num_epochs, device):
+    def __init__(self, model, train_dataset, val_dataset, test_dataset, batch_size, lr, num_epochs, device, num_dataset):
+
+        self.device = device
         self.model = model.to(device)
         self.train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=custom_collate_fn)
         self.val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True, collate_fn=custom_collate_fn_2)
+        self.test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, collate_fn=custom_collate_fn_2)
         self.optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+        # self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=100, gamma=0.5)
         self.criterion = torch.nn.BCELoss()
         self.num_epochs = num_epochs
-        self.device = device
+        self.num_dataset = num_dataset
+        
 
         self.save_path = 'models'
         if not os.path.exists(self.save_path):
@@ -32,6 +37,7 @@ class siamese_trainer:
                 loss = self.criterion(output.squeeze(1), y)
                 loss.backward()
                 self.optimizer.step()
+                # self.scheduler.step()
                 running_loss += loss.item()
                 
 
@@ -53,18 +59,41 @@ class siamese_trainer:
                 accuracy = 100.0 * correct / total
 
 
-            if epoch % 10 == 0:
-                print(correct, total, correct/total)
+            if epoch % 50 == 0:
                 print("Epoch [{}/{}], Training Loss: {:.4f}, Validation Loss: {:.4f}, Accuracy: {:.2f}%".format(
                     epoch+1, self.num_epochs, running_loss/len(self.train_loader), val_loss, accuracy))
             
             # Save the model if validation loss is the lowest seen so far
             if val_loss < self.best_val_loss:
-                if epoch % 10 == 0:
+                if epoch % 50 == 0:
                     print("Validation loss decreased from {:.4f} to {:.4f}. Saving model...".format(self.best_val_loss, val_loss))
-                torch.save(self.model.state_dict(), self.save_path + '/weights-best-cwru-data.pth')
+
+                model_name = 'best-weights-cwru-{}.pth'.format(self.num_dataset)
+                model_path = os.path.join(self.save_path, model_name)
+                torch.save(self.model.state_dict(), model_path)
                 self.best_val_loss = val_loss
 
+
+    def test(self, model):
+
+        self.model = model.to(self.device)
+        self.model.eval()
+        test_loss = 0.0
+        correct = 0
+        total = 0
+        with torch.no_grad():
+            for (x1, x2), y in self.test_loader:
+                x1, x2, y = x1.to(self.device), x2.to(self.device), y.to(self.device)
+                output = self.model(x1, x2)
+                test_loss += self.criterion(output.squeeze(1), y)
+                predicted = np.where(output.cpu().numpy().squeeze() > 0.5, 1, 0)
+                correct += np.sum(predicted == y.cpu().numpy())
+                total += len(y)
+
+            test_loss /= len(self.test_loader)
+            accuracy = 100.0 * correct / total
+        
+        print("Test Loss: {:.4f}, Accuracy: {:.2f}%".format(test_loss, accuracy))
 
 class wdcnn_trainer:
     def __init__(self, model, train_dataset, val_dataset, batch_size, lr, num_epochs, device):
