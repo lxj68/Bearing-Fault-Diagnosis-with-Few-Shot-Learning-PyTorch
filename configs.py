@@ -1,7 +1,7 @@
 window_size = 2048
 
 n_way = 10
-batch_size = 32
+batch_size = 64
 best = -1
 evaluate_every = 200
 loss_every = 20
@@ -9,6 +9,8 @@ n_iter = 1500
 learning_rate = 0.001
 n_val = 2
 n = 0
+exp_list = ['12DriveEndFault']
+rpm_list = ['1772', '1750', '1730']
 save_weights_file = "weights-best-10-oneshot-low-data.hdf5"
 
 
